@@ -1,1 +1,91 @@
-# Task-2_BlockchainBasedTwoFactorAuthentication_Sayeed
+Test 2: Blockchain-Based Two-Factor Authentication (2FA)
+
+Overview
+This smart contract implements a blockchain-based two-factor authentication (2FA) system using one-time passwords (OTPs). The goal is to enhance user authentication security by integrating blockchain technology with OTPs, ensuring that only registered users can authenticate themselves with valid OTPs.
+
+Architecture
+The smart contract is built on the Base blockchain and utilizes OpenZeppelin libraries for secure contract management. The key components of the contract are:
+
+1. State Variables:
+   - `otpValidDuration`: Duration in seconds for which the OTP is valid.
+   - `users`: A mapping that associates user addresses with their profile information.
+
+2. Structs:
+   - `User`: A structure that holds user information, including:
+     - `username`: The unique username of the user.
+     - `publicKey`: The user's public key (address).
+     - `otpSeed`: A seed used to generate OTPs.
+     - `lastUsedTimeWindow`: The last time window in which the OTP was used.
+
+3. Events:
+   - `UserRegistered`: Emitted when a new user registers.
+   - `UserAuthenticated`: Emitted when a user successfully authenticates.
+
+Functions
+
+1. Constructor:
+   - Initializes the contract with a specified OTP validity duration.
+
+   ```solidity
+   constructor(uint256 initialOtpValidDuration) Ownable() { ... }
+   ```
+
+2. User Registration:
+   - Allows users to register by providing a username, public key, and OTP seed. It checks that the username is not empty, the public key is valid, and that the user is not already registered.
+
+   ```solidity
+   function registerUser(string memory username, address publicKey, bytes32 otpSeed) external nonReentrant { ... }
+   ```
+
+3. Authentication:
+   - Authenticates users based on their public key and OTP. It ensures that the user is registered, that the OTP has not been used within the same time window, and that the provided OTP matches the generated OTP.
+
+   ```solidity
+   function authenticate(address user, uint256 otp) external nonReentrant returns(bool) { ... }
+   ```
+
+4. OTP Generation:
+   - Generates a 6-digit OTP based on the user’s seed and the current time window. It ensures that the OTP is only generated if the user is registered and within the allowed time frame.
+
+   ```solidity
+   function generateOTP(address user) public view returns(uint256) { ... }
+   ```
+   The line `bytes32 otpHash = keccak256(abi.encodePacked(users[user].otpSeed, timeWindow));` is used to generate a unique one-time password (OTP) based on the user's seed and the current time window. Here's a breakdown of how it works:
+
+   Breakdown of the Line
+   `users[user].otpSeed`:
+   - This retrieves the OTP seed associated with the specified user from the `users` mapping. The seed is a unique value assigned to each user during registration, which helps in generating the OTP.
+   `timeWindow`:
+   - This represents the current time divided by the OTP validity duration. It essentially groups time into windows (e.g., every 30 seconds), ensuring that the OTP changes over time.
+   `abi.encodePacked(...)`:
+   - This function concatenates the `otpSeed` and `timeWindow` into a single byte array. This is necessary because the `keccak256` function requires input in bytes format.
+   `keccak256(...)`:
+   - This is a cryptographic hashing function that takes the concatenated byte array and produces a fixed-size hash (32 bytes). The output is deterministic, meaning that for the same inputs, it will always produce the same output.
+   `bytes32 otpHash`:
+   - This declares a variable `otpHash` that stores the resulting hash from the `keccak256` function. This hash will be used to derive the actual OTP.
+
+   Purpose of the OTP Generation
+
+   - The combination of the user's seed and the time window ensures that each OTP is unique and time-sensitive. Even if the same user generates an OTP multiple times, the output will differ due to the changing `timeWindow`.
+   - The OTP is then typically reduced to a specific range (e.g., 6-digit number) using a modulus operation, like so:
+
+   ```solidity
+   return uint256(otpHash) % 1000000; // Generates a 6-digit OTP
+   ```
+
+   This method of generating OTPs is secure because:
+   - It relies on a user-specific seed, making it unique to each user.
+   - It incorporates the current time, ensuring that OTPs expire after a certain duration.
+   - The use of a cryptographic hash function makes it difficult to predict future OTPs based on past values.
+
+5. Set OTP Valid Duration:
+   - Allows the contract owner to update the OTP validity duration.
+
+   ```solidity
+   function setOtpValidDuration(uint256 duration) external onlyOwner { ... }
+   ```
+
+Usage
+- Deployment: The contract can be deployed on any Ethereum-compatible blockchain.
+- Registration: Users call `registerUser` with their username, public key, and OTP seed.
+- Authentication: Users can authenticate by calling `authenticate`, providing their public key and the OTP generated by the `generateOTP` function.
